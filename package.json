@@ -1,0 +1,52 @@
+{
+  "name": "infinityflow",
+  "version": "0.0.1",
+  "description": "Lightweight, type-safe, and reactive state flow management library",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "build": "tsc && webpack",
+    "test": "jest",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "state-management",
+    "typescript",
+    "observable",
+    "flow",
+    "dependency-injection"
+  ],
+  "author": "InfinityFlow Devs",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/module-alias": "^2.0.4",
+    "clean-webpack-plugin": "^4.0.0",
+    "dts-bundle-webpack": "^1.0.2",
+    "jest": "^29.7.0",
+    "module-alias": "^2.2.3",
+    "ts-jest": "^29.2.6",
+    "ts-loader": "^9.5.2",
+    "tsconfig-paths-webpack-plugin": "^4.2.0",
+    "typescript": "^5.8.2",
+    "webpack": "^5.88.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "_moduleAliases": {
+    "@": "./dist"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KorolevskiiDev/InfinityFlow.git"
+  }
+}
