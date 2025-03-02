@@ -1,5 +1,5 @@
 # InfinityFlow 🚀♾️
-![npm](https://img.shields.io/npm/v/infinityflow) ![build](https://img.shields.io/github/actions/workflow/status/infinityflow/infinityflow/publish.yml) ![coverage](https://img.shields.io/codecov/c/github/infinityflow/infinityflow)
+![npm](https://img.shields.io/npm/v/infinityflow) ![build](https://img.shields.io/github/actions/workflow/status/KorolevskiiDev/InfinityFlow/publish.yml) ![coverage](https://img.shields.io/codecov/c/github/infinityflow/infinityflow)
 
 ### The Ultimate TypeScript State Flow Management Library
 
