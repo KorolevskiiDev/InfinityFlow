@@ -1,6 +1,5 @@
 import { Flow } from "@/flow/flow";
 import { FlowGroup } from "@/flow/group";
-import { ObservableState } from "@/state/observable";
 import {State} from "../state/state";
 
 describe('FlowGroup Tests', () => {

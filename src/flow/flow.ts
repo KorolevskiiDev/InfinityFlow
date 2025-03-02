@@ -40,7 +40,7 @@ export class Flow {
     dependsOn<T>(state: State<T>, predicate: (value: T) => boolean): this {
         this.dependencies.push({state, predicate});
         this.log("Dependency added. Total:", this.dependencies.length);
-        state.subscribe((value: T, oldValue: T) => {
+        state.subscribe((value: T) => {
             if (this.cancelled || this.waitingForReset) return;
             switch (predicate(value)) {
                 case true:
@@ -164,7 +164,7 @@ export class Flow {
             dependenciesResets = [];
         }
 
-        this.dependencies.forEach(({ state, predicate }) => {
+        this.dependencies.forEach(({ state }) => {
             const unsubscribe = state.subscribe((value: any, oldValue: any) => {
                 this.log(`Dependency changed - resetting flow. (from: ${oldValue}, to: ${value})`);
                 resetDependencyObserver();
