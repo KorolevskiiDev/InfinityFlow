@@ -13,8 +13,7 @@ InfinityFlow is a **lightweight, type-safe, and reactive state flow management l
 ✅ Parallel flows & flow groups  
 ✅ Chained dependencies  
 ✅ Automatic flow reset on state change  
-✅ Works in **browser** and **Node.js** environments  
-✅ Vue-friendly integration 🔥
+✅ Works in **browser** and **Node.js** environments
 
 ---
 
@@ -38,17 +37,15 @@ const microphoneService = new ObservableState(false);
 ```typescript
 import { Flow } from "infinityflow";
 
-const microphoneFlow = new Flow()
+const microphoneFlow = new Flow({autoReset: true, debounceTime: 1000})
   .dependsOn(websocketService, (state) => state === true)
-  .do(() => console.log("Microphone Activated"))
-  .enableAutoReset()
-  .withDebounce(200);
+  .do(() => console.log("Microphone Activated"));
 ```
 
 ### 3. Start Flow
 ```typescript
 microphoneFlow.start();
-websocketService.set(true); // Console: Microphone Activated
+websocketService.set(true);
 ```
 
 ---
@@ -71,16 +68,17 @@ appFlow.start();
 ---
 
 ## API
-### `ObservableState<T>`
+### `State<T>`
 - `.set(value: T)` — Update state
 - `.get()` — Get current state
 - `.subscribe(callback)` — Observe state changes
+    
+### `ObservableState<T>` extends `State<T>`
+- `.waitFor(predicate)` — Wait for state to match predicate
 
 ### `Flow`
 - `.dependsOn(state, predicate)` — Add dependency
 - `.do(action)` — Add action to execute
-- `.enableAutoReset()` — Automatically reset on dependency change
-- `.withDebounce(ms)` — Debounce resets
 - `.start()` — Start flow execution
 - `.reset()` — Reset flow manually
 - `.cancel()` — Cancel running flow
@@ -105,5 +103,5 @@ MIT
 
 ---
 
-## Made with ❤️ by InfinityFlow Devs
+## Made with ❤️ by Korolevskii Dev
 
