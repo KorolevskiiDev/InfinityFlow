@@ -2,11 +2,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { CleanWebpackPlugin } from "clean-webpack-plugin";
 import { TsconfigPathsPlugin } from "tsconfig-paths-webpack-plugin";
-import DtsBundleWebpack from "dts-bundle-webpack";
+import TerserPlugin from "terser-webpack-plugin";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
+// Base configuration for both formats
 const baseConfig = {
     entry: "./src/index.ts",
     resolve: {
@@ -22,19 +22,21 @@ const baseConfig = {
             }
         ]
     },
-    plugins: [
-        new CleanWebpackPlugin({
-            cleanOnceBeforeBuildPatterns: ["**/*"]
-        }),
-        new DtsBundleWebpack({
-            name: "infinityflow",
-            main: "dist/**/*.d.ts",
-            out: "index.d.ts",
-            removeSource: true,
-        })
-    ]
+    optimization: {
+        minimizer: [
+            new TerserPlugin({
+                terserOptions: {
+                    format: {
+                        comments: false,
+                    },
+                },
+                extractComments: false,
+            }),
+        ],
+    }
 };
 
+// CommonJS build
 const commonjsConfig = {
     ...baseConfig,
     name: "commonjs",
@@ -43,10 +45,15 @@ const commonjsConfig = {
     output: {
         filename: "index.js",
         path: path.resolve(__dirname, "dist"),
-        libraryTarget: "commonjs2" // CommonJS
-    }
+        libraryTarget: "commonjs2",
+        clean: true
+    },
+    plugins: [
+        new CleanWebpackPlugin()
+    ]
 };
 
+// ESM build
 const esmConfig = {
     ...baseConfig,
     name: "esm",
@@ -55,16 +62,11 @@ const esmConfig = {
     output: {
         filename: "index.mjs",
         path: path.resolve(__dirname, "dist"),
-        libraryTarget: "module" // ES Module
+        libraryTarget: "module"
     },
     experiments: {
-        outputModule: true // Enable ES Module output
-    },
-    plugins: [
-        new CleanWebpackPlugin({
-            cleanOnceBeforeBuildPatterns: []
-        })
-    ]
+        outputModule: true
+    }
 };
 
 export default [commonjsConfig, esmConfig];
