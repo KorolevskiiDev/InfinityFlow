@@ -1,91 +1,58 @@
 import { FlowCallbacks } from "@/flow/callback";
-import { Timer } from "@/utils/timer";
-import {State} from "@/state/state";
+import { BaseState, BaseStateEvent } from "@/state/base_state";
 
-type Dependency<T> = { state: State<T>; predicate: (state: T) => boolean };
+// Context passed to each action, now with direct state access (no magic strings)
+type StateContext<S extends BaseState<any, any>, EM extends Record<string, any>> = {
+    getState: () => S extends BaseState<infer SS, any> ? Readonly<SS> : any;
+    setState: (patch: any) => void;
+    emit: <K extends keyof EM>(event: K, data: EM[K]) => void;
+};
 
-export class Flow {
-    private static globalFlowCounter = 0;
-    private name = "";
-    private logEnabled = false;
+export type FlowContext<StateMap extends Record<string, BaseState<any, any>>> = {
+    [K in keyof StateMap]: StateContext<
+        StateMap[K],
+        StateMap[K] extends BaseState<any, infer EM> ? EM : any
+    >;
+};
 
+export interface StepFn<StateMap extends Record<string, BaseState<any, any>>, Input, Output> {
+    (ctx: FlowContext<StateMap>, input: Input): Promise<Output> | Output;
+}
 
-    private dependencies: Dependency<any>[] = [];
-    private flowDependencies: Flow[] = [];
-    private parallelFlows: Flow[] = [];
-    private action: () => void = () => {};
+export class Flow<StateMap extends Record<string, BaseState<any, any>>> {
+    private stateMap: StateMap;
+    private steps: ((ctx: FlowContext<StateMap>, input: any) => Promise<any> | any)[] = [];
     private callbacks: FlowCallbacks = {};
-    private completed = 0;
-    private started = false;
-    private cancelled = false;
-    private autoReset: boolean = false;
-    private waitingForReset = false;
-    private debounceTime: number = 0;
-    private debounceTimeout: number | null = null;
 
-    constructor(options: { autoReset?: boolean; debounceTime?: number, name?: string, logEnabled?: boolean } = {}) {
-        this.autoReset = options.autoReset ?? false;
-        this.debounceTime = options.debounceTime ?? 0;
-        this.logEnabled = options.logEnabled ?? false;
-
-        Flow.globalFlowCounter++;
-        this.name = options.name ?? "Flow_" + Flow.globalFlowCounter;
+    constructor(stateMap: StateMap) {
+        this.stateMap = stateMap;
     }
 
-    log(...optionalParams: any[]) {
-        if (!this.logEnabled) return;
-        console.log(`[${this.name}] `, ...optionalParams);
+    step<Input, Output>(fn: StepFn<StateMap, Input, Output>): FlowStep<StateMap, Input, Output> {
+        this.steps.push(fn);
+        return new FlowStep(this.stateMap, this.steps, this.callbacks);
     }
 
-    dependsOn<T>(state: State<T>, predicate: (value: T) => boolean): this {
-        this.dependencies.push({state, predicate});
-        this.log("Dependency added. Total:", this.dependencies.length);
-        state.subscribe((value: T) => {
-            if (this.cancelled || this.waitingForReset) return;
-            switch (predicate(value)) {
-                case true:
-                    this.completed++;
-                    this.log("Dependency resolved. Completed:", this.completed);
-                    this.callProgress(state);
-                    this.checkDependencies();
-                    break;
-                case false:
-                    this.completed--;
-                    this.log("Dependency unresolved. Completed:", this.completed);
-                    this.callProgress(state);
-            }
-        });
+    withCallbacks(callbacks: FlowCallbacks): this {
+        this.callbacks = callbacks;
         return this;
     }
+}
 
-    private callProgress(dependantState: State<any> | Flow) {
-        this.callbacks.onProgress?.(this.completed, this.dependencies.length + this.flowDependencies.length, dependantState);
+export class FlowStep<StateMap extends Record<string, BaseState<any, any>>, Input, Output> {
+    private stateMap: StateMap;
+    private steps: ((ctx: FlowContext<StateMap>, input: any) => Promise<any> | any)[];
+    private callbacks: FlowCallbacks;
+
+    constructor(stateMap: StateMap, steps: ((ctx: FlowContext<StateMap>, input: any) => Promise<any> | any)[], callbacks: FlowCallbacks) {
+        this.stateMap = stateMap;
+        this.steps = steps;
+        this.callbacks = callbacks;
     }
 
-    dependsOnFlow(flow: Flow): this {
-        this.flowDependencies.push(flow);
-        this.log("Flow dependency added. Total:", this.flowDependencies.length);
-        flow.withCallbacks({
-            onComplete: () => {
-                if (this.cancelled) return;
-                this.completed++;
-                this.log("Flow dependency completed. Completed:", this.completed);
-                this.callProgress(flow);
-                this.checkDependencies();
-            },
-        });
-        return this;
-    }
-
-    runsParallel(flow: Flow): this {
-        this.parallelFlows.push(flow);
-        this.log("Parallel flow added. Total:", this.parallelFlows.length);
-        return this;
-    }
-
-    do(action: () => void): this {
-        this.action = action;
-        return this;
+    step<NextOutput>(fn: StepFn<StateMap, Output, NextOutput>): FlowStep<StateMap, Input, NextOutput> {
+        this.steps.push(fn);
+        return new FlowStep(this.stateMap, this.steps, this.callbacks);
     }
 
     withCallbacks(callbacks: FlowCallbacks): this {
@@ -93,86 +60,26 @@ export class Flow {
         return this;
     }
 
-    start() {
-        this.started = true;
-        this.cancelled = false;
-        this.completed = 0;
-        this.log("Flow started.");
+    async start(input: Input): Promise<Output> {
         this.callbacks.onStart?.();
-        this.parallelFlows.forEach((flow) => flow.start());
-        this.flowDependencies.forEach((flow) => flow.start());
-        if (!this.waitingForReset) {
-            this.fullFillDependencyCount();
-            this.checkDependencies();
+        let value: any = input;
+        for (let i = 0; i < this.steps.length; i++) {
+            this.callbacks.onProgress?.(i, this.steps.length);
+            value = await this.steps[i](this.createContext(), value);
         }
-    }
-
-    cancel() {
-        if (this.cancelled) return;
-        this.cancelled = true;
-        if (this.debounceTimeout !== null) Timer.clear(this.debounceTimeout);
-        this.parallelFlows.forEach((flow) => flow.cancel());
-        this.flowDependencies.forEach((flow) => flow.cancel());
-        this.callbacks.onError?.(new Error("Flow cancelled"));
-    }
-
-    reset() {
-        this.cancel();
-        this.start();
-    }
-
-    private fullFillDependencyCount() {
-        this.dependencies.forEach(({ state, predicate }) => {
-            if (predicate(state.get())) {
-                this.completed++;
-            }
-        });
-        this.log("Checking dependencies on start. Completed:", this.completed);
-    }
-
-    private checkDependencies() {
-        if (!this.started || this.cancelled) return;
-        this.log("Checking dependencies. Completed:", this.completed, "Total:", this.dependencies.length + this.flowDependencies.length);
-        if (this.completed === this.dependencies.length + this.flowDependencies.length) {
-            if (this.debounceTimeout !== null) Timer.clear(this.debounceTimeout);
-            this.debounceTimeout = Timer.set(() => {
-                this.executeFlow();
-            }, this.debounceTime);
-        }
-    }
-
-    private executeFlow() {
-        this.log("Executing flow.");
         this.callbacks.onComplete?.();
-        this.action();
-        this.log("Flow completed.");
-        if (this.autoReset) {
-            this.observeDependenciesForReset();
-        }
+        return value;
     }
 
-    private observeDependenciesForReset() {
-        if (!this.autoReset) return;
-
-        this.log("Observing dependencies for reset.");
-        this.waitingForReset = true;
-
-        let dependenciesResets: (() => void)[] = [];
-        const resetDependencyObserver = () => {
-            this.log("Resetting dependency observer for resetting.");
-            dependenciesResets.forEach((reset) => reset());
-            dependenciesResets = [];
+    private createContext(): FlowContext<StateMap> {
+        const ctx = {} as FlowContext<StateMap>;
+        for (const key in this.stateMap) {
+            ctx[key] = {
+                getState: () => (this.stateMap[key] as any).getState(),
+                setState: (patch: any) => (this.stateMap[key] as any).setState(patch),
+                emit: (event, data) => (this.stateMap[key] as any).emit(event, data)
+            };
         }
-
-        this.dependencies.forEach(({ state }) => {
-            const unsubscribe = state.subscribe((value: any, oldValue: any) => {
-                this.log(`Dependency changed - resetting flow. (from: ${oldValue}, to: ${value})`);
-                resetDependencyObserver();
-                this.waitingForReset = false;
-                this.callbacks.onReset?.();
-                this.reset();
-            });
-            dependenciesResets.push(unsubscribe);
-        });
+        return ctx;
     }
 }

@@ -3,7 +3,7 @@
     "target": "es2015",
     "declaration": true,
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "strict": true,
     "declarationMap": false,
     "esModuleInterop": true,
@@ -11,9 +11,10 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@examples/*": ["examples/*"],
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "examples/**/*"],
   "exclude": ["node_modules", "**/*.test.ts", "**/*.test.d.ts"]
 }

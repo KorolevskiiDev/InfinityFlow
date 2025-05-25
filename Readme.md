@@ -82,6 +82,7 @@ appFlow.start();
 - `.start()` — Start flow execution
 - `.reset()` — Reset flow manually
 - `.cancel()` — Cancel running flow
+- `.withCallbacks(callbacks)` — Add callbacks
 
 ### `FlowGroup`
 - `.add(flow, priority)` — Add flow with priority
