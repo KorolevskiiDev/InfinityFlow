@@ -39,7 +39,7 @@ todoState.on(TodoEvents.TodoAdded, (todo) => {
     console.log("Todo added:", todo);
 });
 
-export const loadTodosFlow = new Flow<TodoFlowContext, TodoEventMap, TodoStateShape>({ todo: todoState })
+export const loadTodosFlow = new Flow({ todo: todoState })
     .step(async (ctx) => {
         ctx.todo.setState({ loading: true });
         ctx.todo.emit(TodoEvents.LoadingChanged, true);
@@ -55,7 +55,6 @@ export const loadTodosFlow = new Flow<TodoFlowContext, TodoEventMap, TodoStateSh
         return items;
     }).step(async (ctx) => {})
 
-// Add todo flow: add item, emit event
 export const addTodoFlow = new Flow({ todo: todoState })
     .step(async (ctx, todo: Todo) => {
         const existingItems = ctx.todo.getState().items;
