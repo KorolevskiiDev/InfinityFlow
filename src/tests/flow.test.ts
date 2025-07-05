@@ -1,72 +1,69 @@
-import { ObservableState } from '@/state/observable';
-import { Flow } from '@/flow/flow';
+import { Flow } from "@/flow/flow";
+import { BaseState, BaseStateEvent } from "@/state/base_state";
 
-describe('State Flow Tests', () => {
-    let wsService: ObservableState<boolean>;
-    let micService: ObservableState<boolean>;
-    let userWantsToSpeak: ObservableState<boolean>;
-    let flow: Flow;
+describe('Flow', () => {
+    interface CounterState { count: number; }
+    enum CounterEvents { Incremented = 'incremented' }
+    interface CounterEventMap {
+        stateChange: CounterState;
+        incremented: number;
+    }
+    class Counter extends BaseState<CounterState, CounterEventMap> {
+        constructor() { super({ count: 0 }); }
+        increment() {
+            const newCount = this.getState().count + 1;
+            this.setState({ count: newCount });
+            this.emit(CounterEvents.Incremented, newCount);
+        }
+    }
 
-    beforeEach(() => {
-        wsService = new ObservableState(false);
-        micService = new ObservableState(false);
-        userWantsToSpeak = new ObservableState(false);
-
-        flow = new Flow({autoReset: true})
-            .dependsOn(wsService, (value) => value === true)
-            .dependsOn(userWantsToSpeak, (value) => value === true)
-            .do(() => micService.set(true));
+    it('should execute a single step and update state', async () => {
+        const counter = new Counter();
+        const flow = new Flow({ counter })
+            .step((ctx) => {
+                ctx.counter.setState({ count: 5 });
+                return ctx.counter.getState().count;
+            });
+        const result = await flow.step((ctx, prev) => prev + 1).start(0);
+        expect(counter.getState().count).toBe(5);
+        expect(result).toBe(6);
     });
 
-    it('should activate microphone when WebSocket is connected and user wants to speak', async () => {
-        flow.start();
-
-        wsService.set(true);
-        userWantsToSpeak.set(true);
-
-        // Wait for async flow execution
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        expect(micService.get()).toBe(true);
+    it('should call callbacks in correct order', async () => {
+        const counter = new Counter();
+        const calls: string[] = [];
+        const flow = new Flow({ counter })
+            .step((ctx) => { calls.push('step'); return 1; })
+            .withCallbacks({
+                onStart: () => calls.push('start'),
+                onProgress: (i, total) => calls.push(`progress:${i}/${total}`),
+                onComplete: () => calls.push('complete'),
+            });
+        await flow.step((ctx, prev) => { calls.push('step2'); return prev + 1; }).start(0);
+        expect(calls).toEqual([
+            'start',
+            'progress:0/2',
+            'step',
+            'progress:1/2',
+            'step2',
+            'complete',
+        ]);
     });
 
-    it('should not activate microphone if WebSocket is not connected', async () => {
-        flow.start();
-
-        userWantsToSpeak.set(true);
-
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        expect(micService.get()).toBe(false);
-    });
-
-    it('should reset the flow and reactivate microphone on new user request', async () => {
-        flow.start();
-
-        wsService.set(true);
-        userWantsToSpeak.set(true);
-
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        expect(micService.get()).toBe(true);
-
-        micService.set(false);
-
-        userWantsToSpeak.set(false);
-
-        userWantsToSpeak.set(true);
-
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        expect(micService.get()).toBe(true);
-    });
-
-    it('should cancel the flow', async () => {
-        flow.start();
-        flow.cancel();
-
-        wsService.set(true);
-        userWantsToSpeak.set(true);
-
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        expect(micService.get()).toBe(false);
+    it('should pass and mutate state between steps', async () => {
+        const counter = new Counter();
+        const flow = new Flow({ counter })
+            .step((ctx) => {
+                ctx.counter.setState({ count: 2 });
+                return ctx.counter.getState().count;
+            })
+            .step((ctx, prev) => {
+                ctx.counter.setState({ count: prev + 3 });
+                return ctx.counter.getState().count;
+            });
+        const result = await flow.start(0);
+        expect(counter.getState().count).toBe(5);
+        expect(result).toBe(5);
     });
 });
+

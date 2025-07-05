@@ -1,55 +1,60 @@
-import { State } from "@/state/state";
+import { BaseState } from "@/state/base_state";
 
-describe('State Tests', () => {
-    let state: State<boolean>;
+describe('BaseState', () => {
+    interface CounterState {
+        count: number;
+    }
+    enum CounterEvents {
+        Incremented = 'incremented',
+    }
+    interface CounterEventMap {
+        stateChange: CounterState;
+        incremented: number;
+    }
+    class Counter extends BaseState<CounterState, CounterEventMap> {
+        constructor() {
+            super({ count: 0 });
+        }
+        increment() {
+            const newCount = this.getState().count + 1;
+            this.setState({ count: newCount });
+            this.emit(CounterEvents.Incremented, newCount);
+        }
+    }
 
-    beforeEach(() => {
-        state = new State(false);
+    it('should initialize with default state', () => {
+        const counter = new Counter();
+        expect(counter.getState()).toEqual({ count: 0 });
     });
 
-    it('should initialize with the correct value', () => {
-        expect(state.get()).toBe(false);
+    it('should update state and emit stateChange event', () => {
+        const counter = new Counter();
+        const stateChangeHandler = jest.fn();
+        counter.on('stateChange', stateChangeHandler);
+        // Use the public increment method instead of setState
+        counter.increment();
+        expect(counter.getState().count).toBe(1);
+        expect(stateChangeHandler).toHaveBeenCalledWith({ count: 1 });
     });
 
-    it('should set and get the value correctly', () => {
-        state.set(true);
-        expect(state.get()).toBe(true);
+    it('should emit custom events', () => {
+        const counter = new Counter();
+        const incrementedHandler = jest.fn();
+        counter.on(CounterEvents.Incremented, incrementedHandler);
+        counter.increment();
+        expect(incrementedHandler).toHaveBeenCalledWith(1);
     });
 
-    it('should notify subscribers when the value changes', () => {
-        const subscriber = jest.fn();
-        state.subscribe(subscriber);
-
-        state.set(true);
-        expect(subscriber).toHaveBeenCalledWith(true, false);
-    });
-
-    it('should not notify subscribers if the value does not change', () => {
-        const subscriber = jest.fn();
-        state.subscribe(subscriber);
-
-        state.set(false);
-        expect(subscriber).not.toHaveBeenCalled();
-    });
-
-    it('should unsubscribe correctly', () => {
-        const subscriber = jest.fn();
-        const unsubscribe = state.subscribe(subscriber);
-
-        unsubscribe();
-        state.set(true);
-        expect(subscriber).not.toHaveBeenCalled();
-    });
-
-    it('should handle multiple subscribers', () => {
-        const subscriber1 = jest.fn();
-        const subscriber2 = jest.fn();
-
-        state.subscribe(subscriber1);
-        state.subscribe(subscriber2);
-
-        state.set(true);
-        expect(subscriber1).toHaveBeenCalledWith(true, false);
-        expect(subscriber2).toHaveBeenCalledWith(true, false);
+    it('should support deep state updates', () => {
+        interface NestedState { a: { b: number } }
+        class Nested extends BaseState<NestedState, { stateChange: NestedState }> {
+            constructor() { super({ a: { b: 1 } }); }
+            updateB(newB: number) {
+                this.setState({ a: { b: newB } });
+            }
+        }
+        const nested = new Nested();
+        nested.updateB(2);
+        expect(nested.getState().a.b).toBe(2);
     });
 });
