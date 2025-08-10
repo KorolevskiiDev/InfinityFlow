@@ -26,20 +26,21 @@ for (const file of files) {
 // Remove empty directories
 function removeEmptyDirectories(directory) {
     const files = fs.readdirSync(directory);
-
-    if (files.length > 0) {
-        files.forEach(file => {
-            const fullPath = path.join(directory, file);
-            if (fs.statSync(fullPath).isDirectory()) {
-                removeEmptyDirectories(fullPath);
+    let isEmpty = true;
+    for (const file of files) {
+        const fullPath = path.join(directory, file);
+        if (fs.statSync(fullPath).isDirectory()) {
+            removeEmptyDirectories(fullPath);
+        } else {
+            // If any file is not a .d.ts, directory is not empty
+            if (!file.endsWith('.d.ts')) {
+                isEmpty = false;
             }
-        });
-
-        // Check again after processing subdirectories
-        if (fs.readdirSync(directory).length === 0) {
-            fs.rmdirSync(directory);
         }
-    } else {
+    }
+    // After processing, check if directory only contains .d.ts files (which should be deleted already)
+    const remaining = fs.readdirSync(directory);
+    if (remaining.length === 0) {
         fs.rmdirSync(directory);
     }
 }
@@ -50,6 +51,5 @@ for (const dir of typeDirs) {
     try {
         removeEmptyDirectories(dir);
     } catch (e) {
-        // Ignore errors
     }
 }

@@ -65,7 +65,12 @@ export class FlowStep<StateMap extends Record<string, BaseState<any, any>>, Inpu
         let value: any = input;
         for (let i = 0; i < this.steps.length; i++) {
             this.callbacks.onProgress?.(i, this.steps.length);
-            value = await this.steps[i](this.createContext(), value);
+            try {
+                value = await this.steps[i](this.createContext(), value);
+            } catch (error) {
+                this.callbacks.onError?.(error as Error);
+                return value;
+            }
         }
         this.callbacks.onComplete?.();
         return value;
