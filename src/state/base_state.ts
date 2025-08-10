@@ -50,6 +50,16 @@ function deepMerge<T>(target: T, patch: DeepPartial<T>): void {
 // Generic listener type
 type Listener<Payload> = (data: Payload) => void;
 
+export type BaseStateEventMap<S extends object> = {
+    [BaseStateEvent.Update]: { property: keyof S; oldValue: any; newValue: any };
+    [BaseStateEvent.StateChange]: S;
+};
+
+type FlowInterface<S extends object, EM extends BaseStateEventMap<S>> = {
+    setState: (patch: DeepPartial<S>) => void;
+    emit: <K extends keyof EM>(event: K, data: EM[K]) => void;
+};
+
 /**
  * BaseState provides:
  *  - Deep reactivity via Proxy
@@ -59,15 +69,19 @@ type Listener<Payload> = (data: Payload) => void;
  */
 export abstract class BaseState<
     S extends object,
-    EM extends Record<string, any>
+    EM extends BaseStateEventMap<S>
 > {
     // Make state private
     #state: S;
     private listeners: Partial<{ [K in keyof EM]: Listener<EM[K]>[] }> = {};
 
     constructor(initialState: S) {
-        // Only flows can mutate state
-        this.#state = deepReactive(initialState, this.emit.bind(this));
+        // Create a compatible emitter for deepReactive
+        const reactiveEmit = (event: string, data: any) => {
+            // We know deepReactive only emits 'update', which is a valid key of EM.
+            this.emit(event as keyof EM, data);
+        };
+        this.#state = deepReactive(initialState, reactiveEmit);
     }
 
     /** Emit an event with typed payload */
@@ -101,11 +115,23 @@ export abstract class BaseState<
     protected setState(patch: DeepPartial<S>): void {
         deepMerge(this.#state, patch);
         // @ts-ignore assume 'stateChange' key is in EM
-        this.emit(BaseStateEvent.StateChange as keyof EM, this.#state);
+        this.emit(BaseStateEvent.StateChange as keyof EM, this.#state as EM[BaseStateEvent.StateChange]);
     }
 
     /** Access the reactive state as readonly */
     public getState(): Readonly<S> {
         return this.#state as Readonly<S>;
+    }
+
+    /**
+     * @internal
+     * This method is for internal use by the Flow class only.
+     * It provides access to protected methods needed for flow execution.
+     */
+    public _getFlowInterface(): FlowInterface<S, EM> {
+        return {
+            setState: this.setState.bind(this),
+            emit: this.emit.bind(this),
+        };
     }
 }

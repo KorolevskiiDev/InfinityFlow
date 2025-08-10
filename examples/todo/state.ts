@@ -1,5 +1,7 @@
-import { BaseState, BaseStateEvent } from "@/state/base_state";
-import {Flow} from "@/flow/flow";
+// IMPORTANT: Always extend BaseState with your custom event map
+// and use your extended state class in Flow for proper type inference.
+// Import from the published entry point, not directly from dist/.
+import { BaseState, BaseStateEventMap, Flow } from "../../src/index";
 
 export interface Todo {
     id: number;
@@ -17,11 +19,10 @@ export enum TodoEvents {
     LoadingChanged = 'loadingChanged',
 }
 
-interface TodoEventMap {
-    [BaseStateEvent.StateChange]: TodoStateShape;
+export type TodoEventMap = BaseStateEventMap<TodoStateShape> & {
     [TodoEvents.TodoAdded]: Todo;
     [TodoEvents.LoadingChanged]: boolean;
-}
+};
 
 class TodoState extends BaseState<TodoStateShape, TodoEventMap> {
     constructor() {
@@ -39,7 +40,7 @@ todoState.on(TodoEvents.TodoAdded, (todo) => {
     console.log("Todo added:", todo);
 });
 
-export const loadTodosFlow = new Flow({ todo: todoState })
+export const loadTodosFlow = new Flow<{ todo: TodoState }>({ todo: todoState })
     .step(async (ctx) => {
         ctx.todo.setState({ loading: true });
         ctx.todo.emit(TodoEvents.LoadingChanged, true);
@@ -55,7 +56,7 @@ export const loadTodosFlow = new Flow({ todo: todoState })
         return items;
     }).step(async (ctx) => {})
 
-export const addTodoFlow = new Flow({ todo: todoState })
+export const addTodoFlow = new Flow<{ todo: TodoState }>({ todo: todoState })
     .step(async (ctx, todo: Todo) => {
         const existingItems = ctx.todo.getState().items;
         ctx.todo.setState({ items: [...existingItems, todo] });

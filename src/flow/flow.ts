@@ -1,18 +1,15 @@
 import { FlowCallbacks } from "@/flow/callback";
-import { BaseState, BaseStateEvent } from "@/state/base_state";
+import {BaseState, BaseStateEventMap, DeepPartial} from "@/state/base_state";
 
 // Context passed to each action, now with direct state access (no magic strings)
-type StateContext<S extends BaseState<any, any>, EM extends Record<string, any>> = {
-    getState: () => S extends BaseState<infer SS, any> ? Readonly<SS> : any;
-    setState: (patch: any) => void;
+type StateContext<S extends BaseState<any, EM>, EM extends BaseStateEventMap<any> = S extends BaseState<any, infer E> ? E : BaseStateEventMap<any>> = {
+    getState: () => S extends BaseState<infer SS, any> ? Readonly<SS> : never;
+    setState: (patch: S extends BaseState<infer SS, any> ? DeepPartial<SS> : never) => void;
     emit: <K extends keyof EM>(event: K, data: EM[K]) => void;
 };
 
 export type FlowContext<StateMap extends Record<string, BaseState<any, any>>> = {
-    [K in keyof StateMap]: StateContext<
-        StateMap[K],
-        StateMap[K] extends BaseState<any, infer EM> ? EM : any
-    >;
+    [K in keyof StateMap]: StateContext<StateMap[K]>;
 };
 
 export interface StepFn<StateMap extends Record<string, BaseState<any, any>>, Input, Output> {
@@ -43,11 +40,13 @@ export class FlowStep<StateMap extends Record<string, BaseState<any, any>>, Inpu
     private stateMap: StateMap;
     private steps: ((ctx: FlowContext<StateMap>, input: any) => Promise<any> | any)[];
     private callbacks: FlowCallbacks;
+    private context: FlowContext<StateMap>;
 
     constructor(stateMap: StateMap, steps: ((ctx: FlowContext<StateMap>, input: any) => Promise<any> | any)[], callbacks: FlowCallbacks) {
         this.stateMap = stateMap;
         this.steps = steps;
         this.callbacks = callbacks;
+        this.context = this.createContext(); // Create context once
     }
 
     step<NextOutput>(fn: StepFn<StateMap, Output, NextOutput>): FlowStep<StateMap, Input, NextOutput> {
@@ -66,7 +65,7 @@ export class FlowStep<StateMap extends Record<string, BaseState<any, any>>, Inpu
         for (let i = 0; i < this.steps.length; i++) {
             this.callbacks.onProgress?.(i, this.steps.length);
             try {
-                value = await this.steps[i](this.createContext(), value);
+                value = await this.steps[i](this.context, value);
             } catch (error) {
                 this.callbacks.onError?.(error as Error);
                 return value;
@@ -79,10 +78,15 @@ export class FlowStep<StateMap extends Record<string, BaseState<any, any>>, Inpu
     private createContext(): FlowContext<StateMap> {
         const ctx = {} as FlowContext<StateMap>;
         for (const key in this.stateMap) {
+            const stateInstance = this.stateMap[key];
+            // Use the new public method to get the protected functions
+            const flowInterface = stateInstance._getFlowInterface();
+
+            // @ts-ignore
             ctx[key] = {
-                getState: () => (this.stateMap[key] as any).getState(),
-                setState: (patch: any) => (this.stateMap[key] as any).setState(patch),
-                emit: (event, data) => (this.stateMap[key] as any).emit(event, data)
+                getState: stateInstance.getState.bind(stateInstance),
+                setState: flowInterface.setState,
+                emit: flowInterface.emit,
             };
         }
         return ctx;

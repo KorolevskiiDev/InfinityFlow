@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
     "target": "es2015",
+    "module": "ESNext",
+    "moduleResolution": "node",
     "declaration": true,
     "outDir": "./dist",
     "rootDir": ".",
@@ -8,6 +10,7 @@
     "declarationMap": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
@@ -15,6 +18,6 @@
       "@examples/*": ["examples/*"],
     }
   },
-  "include": ["src/**/*", "examples/**/*"],
+  "include": ["src/**/*", "examples/**/*", "index.ts"],
   "exclude": ["node_modules", "**/*.test.ts", "**/*.test.d.ts"]
 }
