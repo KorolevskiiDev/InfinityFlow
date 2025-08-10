@@ -1,4 +1,5 @@
 import { BaseState } from "@/state/base_state";
+import {BaseStateEventMap} from "../state/base_state";
 
 describe('BaseState', () => {
     interface CounterState {
@@ -7,7 +8,7 @@ describe('BaseState', () => {
     enum CounterEvents {
         Incremented = 'incremented',
     }
-    interface CounterEventMap {
+    type CounterEventMap = BaseStateEventMap<CounterState> & {
         stateChange: CounterState;
         incremented: number;
     }
@@ -47,7 +48,10 @@ describe('BaseState', () => {
 
     it('should support deep state updates', () => {
         interface NestedState { a: { b: number } }
-        class Nested extends BaseState<NestedState, { stateChange: NestedState }> {
+        type NestedEventMap = BaseStateEventMap<NestedState> & {
+            stateChange: NestedState;
+        }
+        class Nested extends BaseState<NestedState, NestedEventMap> {
             constructor() { super({ a: { b: 1 } }); }
             updateB(newB: number) {
                 this.setState({ a: { b: newB } });

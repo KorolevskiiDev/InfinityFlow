@@ -1,10 +1,10 @@
 import { Flow } from "@/flow/flow";
-import { BaseState, BaseStateEvent } from "@/state/base_state";
+import {BaseState, BaseStateEvent, BaseStateEventMap} from "@/state/base_state";
 
 describe('Flow', () => {
     interface CounterState { count: number; }
     enum CounterEvents { Incremented = 'incremented' }
-    interface CounterEventMap {
+    type CounterEventMap = BaseStateEventMap<CounterState> & {
         stateChange: CounterState;
         incremented: number;
     }
