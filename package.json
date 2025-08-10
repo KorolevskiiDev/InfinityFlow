@@ -1,6 +1,6 @@
 {
   "name": "infinityflow",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Lightweight, type-safe, and reactive state flow management library",
   "main": "dist/index.es.js",
   "module": "dist/index.cjs.js",
