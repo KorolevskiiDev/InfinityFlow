@@ -1,4 +1,4 @@
-export const enum BaseStateEvent {
+export enum BaseStateEvent {
     Update = 'update',
     StateChange = 'stateChange'
 }

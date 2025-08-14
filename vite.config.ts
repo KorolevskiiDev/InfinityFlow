@@ -14,24 +14,24 @@ export default defineConfig({
       entry: path.resolve(__dirname, 'src/index.ts'),
       name: 'InfinityFlow',
       fileName: (format) => `index.${format}.js`,
-      formats: ['es', "cjs"], // Bundle as ESM and UMD
+      formats: ['es', 'cjs'],
     },
     rollupOptions: {
-      external: [
-        // List external dependencies here, e.g. 'react', 'vue', etc.
-      ],
+      external: [],
       output: {
-        globals: {
-
-        },
+        globals: {},
       },
     },
   },
-  plugins: [dts({
-    entryRoot: 'src',
-    outDir: 'dist',
-    tsconfigPath: path.resolve(__dirname, 'tsconfig.json'),
-    insertTypesEntry: true, // Only generate a single index.d.ts
-    rollupTypes: true, // Bundle types into one file
-  })],
+  plugins: [
+    dts({
+      entryRoot: 'src',
+      outDir: 'dist',
+      tsconfigPath: path.resolve(__dirname, 'tsconfig.json'),
+      insertTypesEntry: true,
+      rollupTypes: false, // Avoid aggressive type rollup that can widen generics
+      include: ['src/**/*.ts'],
+      exclude: ['**/*.test.ts', '**/*.test.d.ts', 'examples/**'],
+    }),
+  ],
 });

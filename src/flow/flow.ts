@@ -1,15 +1,16 @@
 import { FlowCallbacks } from "@/flow/callback";
 import {BaseState, BaseStateEventMap, DeepPartial} from "@/state/base_state";
 
-// Context passed to each action, now with direct state access (no magic strings)
-type StateContext<S extends BaseState<any, EM>, EM extends BaseStateEventMap<any> = S extends BaseState<any, infer E> ? E : BaseStateEventMap<any>> = {
-    getState: () => S extends BaseState<infer SS, any> ? Readonly<SS> : never;
-    setState: (patch: S extends BaseState<infer SS, any> ? DeepPartial<SS> : never) => void;
-    emit: <K extends keyof EM>(event: K, data: EM[K]) => void;
-};
+// Helper type extractors to keep inference stable across bundled .d.ts
+export type ExtractStateShape<S> = S extends BaseState<infer SS, any> ? SS : never;
+export type ExtractEventMap<S> = S extends BaseState<any, infer E> ? E : BaseStateEventMap<any>;
 
 export type FlowContext<StateMap extends Record<string, BaseState<any, any>>> = {
-    [K in keyof StateMap]: StateContext<StateMap[K]>;
+    [K in keyof StateMap]: {
+        getState: () => Readonly<ExtractStateShape<StateMap[K]>>;
+        setState: (patch: DeepPartial<ExtractStateShape<StateMap[K]>>) => void;
+        emit: <EM extends ExtractEventMap<StateMap[K]>, EK extends keyof EM>(event: EK, data: EM[EK]) => void;
+    }
 };
 
 export interface StepFn<StateMap extends Record<string, BaseState<any, any>>, Input, Output> {

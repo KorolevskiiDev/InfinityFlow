@@ -1,7 +1,4 @@
-// IMPORTANT: Always extend BaseState with your custom event map
-// and use your extended state class in Flow for proper type inference.
-// Import from the published entry point, not directly from dist/.
-import { BaseState, BaseStateEventMap, Flow } from "../../src/index";
+import { BaseState, BaseStateEventMap, Flow } from "../../dist/index";
 
 export interface Todo {
     id: number;
